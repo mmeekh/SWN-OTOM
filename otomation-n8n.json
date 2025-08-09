@@ -24,35 +24,35 @@
             "string": [
               {
                 "name": "TELEGRAM_BOT_TOKEN",
-                "value": "PASTE_TELEGRAM_BOT_TOKEN"
+                "value": "={{$env.TELEGRAM_BOT_TOKEN}}"
               },
               {
                 "name": "OPENAI_API_KEY",
-                "value": "PASTE_OPENAI_API_KEY"
+                "value": "={{$env.OPENAI_API_KEY}}"
               },
               {
                 "name": "ELEVENLABS_API_KEY",
-                "value": "PASTE_ELEVENLABS_API_KEY"
+                "value": "={{$env.ELEVENLABS_API_KEY}}"
               },
               {
                 "name": "ELEVENLABS_VOICE_ID",
-                "value": "elevenlabs-voice-tr-01"
+                "value": "={{$env.ELEVENLABS_VOICE_ID}}"
               },
               {
                 "name": "HEYGEN_API_KEY",
-                "value": "PASTE_HEYGEN_API_KEY"
+                "value": "={{$env.HEYGEN_API_KEY}}"
               },
               {
                 "name": "HEYGEN_AVATAR_ID",
-                "value": "your_avatar_id"
+                "value": "={{$env.HEYGEN_AVATAR_ID}}"
               },
               {
                 "name": "CREATOMATE_API_KEY",
-                "value": "PASTE_CREATOMATE_API_KEY"
+                "value": "={{$env.CREATOMATE_API_KEY}}"
               },
               {
                 "name": "PEXELS_API_KEY",
-                "value": "PASTE_PEXELS_API_KEY"
+                "value": "={{$env.PEXELS_API_KEY}}"
               }
             ]
           },
