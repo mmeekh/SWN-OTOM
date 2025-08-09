@@ -66,6 +66,8 @@
           -320
         ],
         "id": "59fae22e-a6c4-40b4-9700-e4e76388b152"
+        ,"notesInFlow": true,
+        "notes": "Stores all required API keys in the workflow context for later nodes."
       },
       {
         "parameters": {
@@ -79,6 +81,8 @@
           -320
         ],
         "id": "4e77db3b-8855-40ab-8172-dbc4e031ae95"
+        ,"notesInFlow": true,
+        "notes": "Pulls text and chat metadata from Telegram messages and prepares run identifiers."
       },
       {
         "parameters": {
@@ -92,6 +96,8 @@
           -320
         ],
         "id": "7999bf3f-5a32-4e14-93a7-f84d1fb3dc8c"
+        ,"notesInFlow": true,
+        "notes": "Splits the incoming script into numbered sentences and flags even sentences as B-roll; throws an error when the script is empty."
       },
       {
         "parameters": {
@@ -105,6 +111,8 @@
           -480
         ],
         "id": "b10c7e0b-5de4-422c-b8cb-ce41b0edb87f"
+        ,"notesInFlow": true,
+        "notes": "Reassembles sentences back into a single script string for downstream processing."
       },
       {
         "parameters": {
@@ -119,6 +127,8 @@
           -480
         ],
         "id": "e478bf44-b6c5-4542-a064-a6da83fe83fc"
+        ,"notesInFlow": true,
+        "notes": "Calls ElevenLabs text-to-speech API to synthesize narration audio; expects valid API key and voice ID."
       },
       {
         "parameters": {
@@ -133,6 +143,8 @@
           -480
         ],
         "id": "f3be1f00-83cd-44f0-ad75-3cd07e5eb9b6"
+        ,"notesInFlow": true,
+        "notes": "Transcribes generated audio using OpenAI Whisper to obtain word timing information."
       },
       {
         "parameters": {
@@ -173,6 +185,8 @@
           -256
         ],
         "id": "fb3456c6-ac16-47f6-af12-13798d1a5054"
+        ,"notesInFlow": true,
+        "notes": "Builds a timeline for each sentence using Whisper segments when available or falling back to estimated durations."
       },
       {
         "parameters": {
@@ -186,6 +200,8 @@
           -256
         ],
         "id": "46cf8954-ccdc-443c-afc8-182a9696f4c0"
+        ,"notesInFlow": true,
+        "notes": "Generates visual prompts for B-roll sentences and passes through others unchanged."
       },
       {
         "parameters": {
