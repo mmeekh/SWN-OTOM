@@ -1,1020 +1,1046 @@
 {
-    "nodes": [
-      {
-        "parameters": {
-          "updates": [
-            "message"
-          ],
-          "additionalFields": {}
-        },
-        "type": "n8n-nodes-base.telegramTrigger",
-        "typeVersion": 1,
-        "name": "Telegram Trigger",
-        "position": [
-          -5360,
-          -320
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
         ],
-        "id": "4ff30a65-e9c6-46f8-a36f-5271c286ff0a",
-        "webhookId": "auto-webhook-id"
-      },
-      {
-        "parameters": {
-          "keepOnlySet": true,
-          "values": {
-            "string": [
-              {
-                "name": "TELEGRAM_BOT_TOKEN",
-                "value": "={{$env.TELEGRAM_BOT_TOKEN}}"
-              },
-              {
-                "name": "OPENAI_API_KEY",
-                "value": "={{$env.OPENAI_API_KEY}}"
-              },
-              {
-                "name": "ELEVENLABS_API_KEY",
-                "value": "={{$env.ELEVENLABS_API_KEY}}"
-              },
-              {
-                "name": "ELEVENLABS_VOICE_ID",
-                "value": "={{$env.ELEVENLABS_VOICE_ID}}"
-              },
-              {
-                "name": "HEYGEN_API_KEY",
-                "value": "={{$env.HEYGEN_API_KEY}}"
-              },
-              {
-                "name": "HEYGEN_AVATAR_ID",
-                "value": "={{$env.HEYGEN_AVATAR_ID}}"
-              },
-              {
-                "name": "CREATOMATE_API_KEY",
-                "value": "={{$env.CREATOMATE_API_KEY}}"
-              },
-              {
-                "name": "PEXELS_API_KEY",
-                "value": "={{$env.PEXELS_API_KEY}}"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 2,
-        "name": "Set API Keys",
-        "position": [
-          -5136,
-          -320
-        ],
-        "id": "59fae22e-a6c4-40b4-9700-e4e76388b152"
-        ,"notesInFlow": true,
-        "notes": "Stores all required API keys in the workflow context for later nodes."
-      },
-      {
-        "parameters": {
-          "functionCode": "const msg = $json.message || {};\nconst text = (msg.text || $json.text || '').trim();\nconst chatId = (msg.chat && msg.chat.id) ? msg.chat.id : $json.chat_id;\nconst messageId = msg.message_id || $json.message_id || undefined;\nconst run_id = (chatId && messageId) ? `${chatId}_${messageId}` : `${Date.now()}`;\nreturn [{ json: { full_script: text, chat_id: chatId, message_id: messageId, run_id, now: new Date().toISOString() } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Extract Script",
-        "position": [
-          -4912,
-          -320
-        ],
-        "id": "4e77db3b-8855-40ab-8172-dbc4e031ae95"
-        ,"notesInFlow": true,
-        "notes": "Pulls text and chat metadata from Telegram messages and prepares run identifiers."
-      },
-      {
-        "parameters": {
-          "functionCode": "const text = ($json.full_script || '').trim();\nif (!text) throw new Error('Boş script geldi.');\nconst parts = text.split(/(?<=[\\.!\\?…])\\s+|\\n+/g).map(s => s.trim()).filter(Boolean);\nconst sentences = parts.map((s, i) => ({ index: i + 1, sentence: s, isBroll: ((i + 1) % 2) === 0 }));\nreturn [{ json: { ...$json, sentences } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Split Sentences",
-        "position": [
-          -4720,
-          -320
-        ],
-        "id": "7999bf3f-5a32-4e14-93a7-f84d1fb3dc8c"
-        ,"notesInFlow": true,
-        "notes": "Splits the incoming script into numbered sentences and flags even sentences as B-roll; throws an error when the script is empty."
-      },
-      {
-        "parameters": {
-          "functionCode": "const sentences = $json.sentences || [];\nconst combined = sentences.map(s => s.sentence).join(' ');\nreturn [{ json: { ...$json, combined_script: combined } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Combine Script",
-        "position": [
-          -4512,
-          -480
-        ],
-        "id": "b10c7e0b-5de4-422c-b8cb-ce41b0edb87f"
-        ,"notesInFlow": true,
-        "notes": "Reassembles sentences back into a single script string for downstream processing."
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.elevenlabs.io/v1/text-to-speech/` + $node[\"Set API Keys\"].json[\"ELEVENLABS_VOICE_ID\"] + `/stream`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "ElevenLabs TTS (Binary)",
-        "position": [
-          -4320,
-          -480
-        ],
-        "id": "e478bf44-b6c5-4542-a064-a6da83fe83fc"
-        ,"notesInFlow": true,
-        "notes": "Calls ElevenLabs text-to-speech API to synthesize narration audio; expects valid API key and voice ID."
-      },
-      {
-        "parameters": {
-          "url": "https://api.openai.com/v1/audio/transcriptions",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "OpenAI Whisper (Transcript)",
-        "position": [
-          -4080,
-          -480
-        ],
-        "id": "f3be1f00-83cd-44f0-ad75-3cd07e5eb9b6"
-        ,"notesInFlow": true,
-        "notes": "Transcribes generated audio using OpenAI Whisper to obtain word timing information."
-      },
-      {
-        "parameters": {
-          "functionCode": "return [{ json: { whisper: $json } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Wrap Whisper",
-        "position": [
-          -3856,
-          -480
-        ],
-        "id": "a89a6d93-e5b4-4961-80b5-544546c48ca9"
-      },
-      {
-        "parameters": {
-          "mode": "mergeByIndex",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.merge",
-        "typeVersion": 2,
-        "name": "Merge Sentences + Whisper",
-        "position": [
-          -3856,
-          -256
-        ],
-        "id": "cce80141-b1c8-4fbb-b933-fbb3182711c8"
-      },
-      {
-        "parameters": {
-          "functionCode": "const sentences = $json.sentences || [];\nconst whisper = $json.whisper || {};\nconst segments = whisper.segments || [];\nlet timing = [];\nif (Array.isArray(segments) && segments.length) {\n  const words = [];\n  for (const seg of segments) {\n    if (Array.isArray(seg.words)) {\n      for (const w of seg.words) words.push({ start: +w.start||0, end: +w.end||0 });\n    } else {\n      const s0 = +seg.start||0, e0 = +seg.end||s0+3, wc = String(seg.text||'').trim().split(/\\s+/).filter(Boolean).length||1;\n      const per = (e0-s0)/wc; for (let i=0;i<wc;i++) words.push({ start: s0+per*i, end: s0+per*(i+1) });\n    }\n  }\n  let cursor = 0;\n  for (const s of sentences) {\n    const wc = String(s.sentence||'').trim().split(/\\s+/).filter(Boolean).length;\n    const slice = words.slice(cursor, cursor+wc);\n    const start = slice[0]?.start ?? (timing.at(-1)?.end ?? 0);\n    const end = slice.at(-1)?.end ?? (start + Math.max(2, wc/2.5));\n    timing.push({ ...s, start, end }); cursor += wc;\n  }\n} else {\n  let t=0; const wps=2.6; for (const s of sentences){ const wc=String(s.sentence||'').split(/\\s+/).filter(Boolean).length; let dur=Math.max(2,wc/wps); if(s.isBroll) dur=Math.max(3.5,Math.min(4.5,dur)); const start=t; const end=start+dur; timing.push({ ...s, start, end }); t=end; }\n}\nreturn timing.map(x=>({json:{...$json, ...x, chat_id: $json.chat_id, run_id: $json.run_id }}));"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Build Timing Map",
-        "position": [
-          -3632,
-          -256
-        ],
-        "id": "fb3456c6-ac16-47f6-af12-13798d1a5054"
-        ,"notesInFlow": true,
-        "notes": "Builds a timeline for each sentence using Whisper segments when available or falling back to estimated durations."
-      },
-      {
-        "parameters": {
-          "functionCode": "return items.map(i=>({json:{...i.json, prompt: i.json.isBroll ? `cinematic, concept: \"${i.json.sentence}\", portrait 9:16, realistic motion, no captions, no text` : null}}));"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Prompt Builder",
-        "position": [
-          -3408,
-          -256
-        ],
-        "id": "46cf8954-ccdc-443c-afc8-182a9696f4c0"
-        ,"notesInFlow": true,
-        "notes": "Generates visual prompts for B-roll sentences and passes through others unchanged."
-      },
-      {
-        "parameters": {
-          "conditions": {
-            "boolean": [
-              {
-                "value1": "={{$json.isBroll}}"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2,
-        "name": "IF isBroll?",
-        "position": [
-          -3200,
-          -256
-        ],
-        "id": "deb5f0a9-40a5-4b8b-8911-d380fc5022c9"
-      },
-      {
-        "parameters": {
-          "url": "https://api.pexels.com/videos/search",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "Pexels Search",
-        "position": [
-          -2976,
-          -336
-        ],
-        "id": "9e57c219-6c77-4c29-b4ca-c491e6c2df88",
-        "continueOnFail": true
-      },
-      {
-        "parameters": {
-          "functionCode": "let link=null; try{ const v=($json.videos||[])[0]; if(v){ const files=(v.video_files||[]).filter(f=>f.height>=1000).sort((a,b)=>(b.height*b.width)-(a.height*a.width)); link=(files[0]?.link)||(v.video_files?.[0]?.link)||null; } }catch(e){}\nreturn [{json:{...$json, broll_url: link, broll_sample_url: link}}];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Extract Pexels URL",
-        "position": [
-          -2768,
-          -336
-        ],
-        "id": "ae70bb30-f8c4-47d0-85ba-48dca4c296b9"
-      },
-      {
-        "parameters": {
-          "functionCode": "return [{ json: { ...$json, broll_url: null } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "No B-roll (Pass)",
-        "position": [
-          -2976,
-          -160
-        ],
-        "id": "743749b5-1a3e-4dd6-8202-8f25b053cfd6"
-      },
-      {
-        "parameters": {},
-        "type": "n8n-nodes-base.merge",
-        "typeVersion": 2,
-        "name": "Merge Scenes",
-        "position": [
-          -2560,
-          -256
-        ],
-        "id": "2b10bff4-6cd8-4342-8cde-9e3231fc2231"
-      },
-      {
-        "parameters": {
-          "url": "https://api.heygen.com/v1/video.generate",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "HeyGen Generate",
-        "position": [
-          -2368,
-          -480
-        ],
-        "id": "cd5d7143-502c-42e1-aa68-3ecfa0ad1ed3"
-      },
-      {
-        "parameters": {
-          "functionCode": "return [{ json: { video_id: $json.data?.video_id || null } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Extract HeyGen ID",
-        "position": [
-          -2176,
-          -480
-        ],
-        "id": "b920701b-ce0b-4dd7-966b-088f0ff7644b"
-      },
-      {
-        "parameters": {
-          "unit": "seconds"
-        },
-        "type": "n8n-nodes-base.wait",
-        "typeVersion": 1,
-        "name": "Wait 15s",
-        "position": [
-          -1968,
-          -480
-        ],
-        "id": "b4a5968d-e7e5-4c9d-b38f-9082dbea536d",
-        "webhookId": "e1d8e5ed-d55a-4bf0-9169-80abf2f846df"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.heygen.com/v1/video.status?video_id=` + $json.video_id}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "HeyGen Poll",
-        "position": [
-          -1776,
-          -480
-        ],
-        "id": "de3ece3d-0808-429d-a609-654623fca029"
-      },
-      {
-        "parameters": {
-          "functionCode": "const ready = ($json.data?.state||'').toLowerCase()==='completed';\nconst url = $json.data?.video_url || null;\nreturn [{ json: { avatar_ready: ready, avatar_master_url: url } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Extract HeyGen URL",
-        "position": [
-          -1568,
-          -480
-        ],
-        "id": "2aa444f8-2037-4625-a2e2-a184e6b3d863"
-      },
-      {
-        "parameters": {
-          "functionCode": "const scenes = items.map(i=>i.json).sort((a,b)=>(a.index||0)-(b.index||0));\nfunction toSrtTime(sec){ const s=Math.max(0,+sec||0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=Math.floor(s%60), ms=Math.floor((s-Math.floor(s))*1000); const pad=(n,l=2)=>String(n).padStart(l,'0'); return `${pad(h)}:${pad(m)}:${pad(ss)},${pad(ms,3)}`; }\nlet srt=''; scenes.forEach((sc, i)=>{ srt+=`${i+1}\\n${toSrtTime(sc.start)} --> ${toSrtTime(sc.end)}\\n${sc.sentence}\\n\\n`; });\nconst total = scenes.length ? scenes[scenes.length-1].end : 0;\nreturn [{ json: { scenes, srt, totalDuration: total, chat_id: scenes[0]?.chat_id, run_id: scenes[0]?.run_id } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "SRT Builder",
-        "position": [
-          -2368,
-          -32
-        ],
-        "id": "39fee8f7-f0cd-4f3a-b421-55fb04275854"
-      },
-      {
-        "parameters": {
-          "mode": "mergeByIndex",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.merge",
-        "typeVersion": 2,
-        "name": "Merge SRT + AvatarURL",
-        "position": [
-          -2176,
-          -32
-        ],
-        "id": "1470e768-d16b-4500-8eb6-539ffba1a466"
-      },
-      {
-        "parameters": {
-          "functionCode": "const s=$json.scenes||[]; const total=+$json.totalDuration||0; const layers=[];\nif ($json.avatar_master_url){ layers.push({type:\"video\", source:$json.avatar_master_url, start:0, end:total, fit:\"cover\", width:576, height:1024}); }\nfor (const sc of s){ if(sc.isBroll && sc.broll_url){ layers.push({type:\"video\", source:sc.broll_url, start:sc.start, end:sc.end, fit:\"cover\", width:576, height:1024}); } }\nlayers.push({type:\"subtitles\", format:\"srt\", content:$json.srt, start:0, end:total, fontFamily:\"Inter\", fontSize:28, alignment:\"bottom\"});\nreturn [{ json: { output:{ width:576, height:1024, fps:24, duration:total }, layers, chat_id: $json.chat_id } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Assemble Layers",
-        "position": [
-          -1968,
-          -32
-        ],
-        "id": "b1bed371-bd90-4075-8fdc-ace3d0d9180b"
-      },
-      {
-        "parameters": {
-          "url": "https://api.creatomate.com/v1/renders",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "Creatomate Render",
-        "position": [
-          -1776,
-          -32
-        ],
-        "id": "5238992c-2ece-4689-8aa9-225141114b66",
-        "continueOnFail": true
-      },
-      {
-        "parameters": {
-          "functionCode": "const url = $json.url || $json.data?.url || $json.data?.output_url || null; return [{ json: { final_url: url, chat_id: $json.chat_id } }];"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Extract Final URL",
-        "position": [
-          -1568,
-          -32
-        ],
-        "id": "1c6c3dc1-4a46-43d4-8d56-cbe4326dd146"
-      },
-      {
-        "parameters": {
-          "conditions": {
-            "string": [
-              {
-                "value1": "={{$json.final_url}}",
-                "operation": "isSet"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2,
-        "name": "IF Has Final URL?",
-        "position": [
-          -1376,
-          -32
-        ],
-        "id": "43c25f68-a26d-47c4-8997-5f878647fb69"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendMessage`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send Summary",
-        "position": [
-          -1200,
-          -112
-        ],
-        "id": "dee93217-bfc9-4be8-9ade-479410bbe465"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send Final Video",
-        "position": [
-          -1200,
-          -64
-        ],
-        "id": "76234dff-c243-43a1-b019-1e1fc3800c3e"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send Avatar",
-        "position": [
-          -1200,
-          16
-        ],
-        "id": "dd2e2045-f72e-4adc-8549-b476746c16f5"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send B-roll",
-        "position": [
-          -1200,
-          64
-        ],
-        "id": "06066a69-aa39-4c83-93d6-da730060fe6a"
-      },
-      {
-        "parameters": {
-          "functionCode": "const out = [{ json: { chat_id: $items(\"extract-final-url\")[0].json.chat_id }, binary: {} }];\nconst item = out[0];\n// Ses (ElevenLabs TTS çıktısı)\nitem.binary.voice = $items(\"elevenlabs-tts\")[0].binary.data;\nitem.binary.voice.fileName = item.binary.voice.fileName || \"voice_elevenlabs.mp3\";\nreturn out;"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Prepare Voice for TG",
-        "position": [
-          -1200,
-          128
-        ],
-        "id": "9190b670-4224-45fa-b841-d9a0ad780bd8"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendAudio`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send Voice (Binary)",
-        "position": [
-          -1200,
-          192
-        ],
-        "id": "5a917af4-5b97-46a4-ba17-509510f31a1c"
-      },
-      {
-        "parameters": {
-          "url": "={{ $items(\"extract-final-url\")[0].json.final_url }}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "Download Final (file)",
-        "position": [
-          -992,
-          176
-        ],
-        "id": "edb9f3d3-42c3-4b9f-b3e5-6b9c8276a558"
-      },
-      {
-        "parameters": {
-          "url": "={{ $items(\"extract-heygen-url\")[0].json.avatar_master_url }}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "Download Avatar (file)",
-        "position": [
-          -992,
-          224
-        ],
-        "id": "55321d43-336c-4587-8b62-ce378fa4aa1a"
-      },
-      {
-        "parameters": {
-          "url": "={{ $items(\"extract-pexels-url\")[0].json.broll_sample_url }}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "Download B-roll (file)",
-        "position": [
-          -992,
-          288
-        ],
-        "id": "da02b89c-68a5-48f9-8dd9-ba93c25ff6da"
-      },
-      {
-        "parameters": {
-          "functionCode": "const out = [{ json: { chat_id: $items(\"extract-final-url\")[0].json.chat_id }, binary: {} }];\nconst item = out[0];\n// Voice binary (from TTS)\nitem.binary.voice = $items(\"elevenlabs-tts\")[0].binary.data; item.binary.voice.fileName = item.binary.voice.fileName || \"voice_elevenlabs.mp3\";\n// Final\nitem.binary.final = $items(\"dl-final\")[0].binary.data; item.binary.final.fileName = item.binary.final.fileName || \"final_video.mp4\";\n// Avatar\nitem.binary.avatar = $items(\"dl-avatar\")[0].binary.data; item.binary.avatar.fileName = item.binary.avatar.fileName || \"avatar_master.mp4\";\n// B-roll sample\nitem.binary.broll = $items(\"dl-broll\")[0].binary.data; item.binary.broll.fileName = item.binary.broll.fileName || \"broll_sample.mp4\";\n// SRT (text → binary)\nconst srtText = $items(\"srt-builder\")[0].json.srt || '';\nconst buf = Buffer.from(srtText, 'utf-8');\nitem.binary.subs = { data: buf.toString('base64'), fileName: 'subs.srt', mimeType: 'application/x-subrip' };\nreturn out;"
-        },
-        "type": "n8n-nodes-base.function",
-        "typeVersion": 1,
-        "name": "Prepare ZIP (collect binaries)",
-        "position": [
-          -800,
-          256
-        ],
-        "id": "c7c14482-ab43-4ce4-be30-0b46ae5b3784"
-      },
-      {
-        "parameters": {},
-        "type": "n8n-nodes-base.archive",
-        "typeVersion": 1,
-        "name": "Archive to ZIP",
-        "position": [
-          -592,
-          256
-        ],
-        "id": "b43407af-4e63-4bb2-8042-52725ae669ec"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendDocument`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send ZIP (document)",
-        "position": [
-          -400,
-          256
-        ],
-        "id": "3e33f34b-62e0-4812-84bf-e30ea70c0114"
-      },
-      {
-        "parameters": {
-          "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendMessage`}}",
-          "options": {}
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4,
-        "name": "TG Send Error",
-        "position": [
-          -1200,
-          272
-        ],
-        "id": "3ab83778-e2e2-4a14-acae-06bb6543762e"
-      }
-    ],
-    "connections": {
-      "Telegram Trigger": {
-        "main": [
-          [
-            {
-              "node": "Set API Keys",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Set API Keys": {
-        "main": [
-          [
-            {
-              "node": "Extract Script",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extract Script": {
-        "main": [
-          [
-            {
-              "node": "Split Sentences",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Combine Script",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Split Sentences": {
-        "main": [
-          [
-            {
-              "node": "Merge Sentences + Whisper",
-              "type": "main",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "Combine Script": {
-        "main": [
-          [
-            {
-              "node": "ElevenLabs TTS (Binary)",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "HeyGen Generate",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "ElevenLabs TTS (Binary)": {
-        "main": [
-          [
-            {
-              "node": "OpenAI Whisper (Transcript)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "OpenAI Whisper (Transcript)": {
-        "main": [
-          [
-            {
-              "node": "Wrap Whisper",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Wrap Whisper": {
-        "main": [
-          [
-            {
-              "node": "Merge Sentences + Whisper",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Merge Sentences + Whisper": {
-        "main": [
-          [
-            {
-              "node": "Build Timing Map",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Build Timing Map": {
-        "main": [
-          [
-            {
-              "node": "Prompt Builder",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Prompt Builder": {
-        "main": [
-          [
-            {
-              "node": "IF isBroll?",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "IF isBroll?": {
-        "main": [
-          [
-            {
-              "node": "Pexels Search",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "No B-roll (Pass)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Pexels Search": {
-        "main": [
-          [
-            {
-              "node": "Extract Pexels URL",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extract Pexels URL": {
-        "main": [
-          [
-            {
-              "node": "Merge Scenes",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "No B-roll (Pass)": {
-        "main": [
-          [
-            {
-              "node": "Merge Scenes",
-              "type": "main",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "Merge Scenes": {
-        "main": [
-          [
-            {
-              "node": "SRT Builder",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "HeyGen Generate": {
-        "main": [
-          [
-            {
-              "node": "Extract HeyGen ID",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extract HeyGen ID": {
-        "main": [
-          [
-            {
-              "node": "Wait 15s",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Wait 15s": {
-        "main": [
-          [
-            {
-              "node": "HeyGen Poll",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "HeyGen Poll": {
-        "main": [
-          [
-            {
-              "node": "Extract HeyGen URL",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extract HeyGen URL": {
-        "main": [
-          [
-            {
-              "node": "Merge SRT + AvatarURL",
-              "type": "main",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "SRT Builder": {
-        "main": [
-          [
-            {
-              "node": "Merge SRT + AvatarURL",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Merge SRT + AvatarURL": {
-        "main": [
-          [
-            {
-              "node": "Assemble Layers",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Assemble Layers": {
-        "main": [
-          [
-            {
-              "node": "Creatomate Render",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Creatomate Render": {
-        "main": [
-          [
-            {
-              "node": "Extract Final URL",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Extract Final URL": {
-        "main": [
-          [
-            {
-              "node": "IF Has Final URL?",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "IF Has Final URL?": {
-        "main": [
-          [
-            {
-              "node": "TG Send Summary",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "TG Send Final Video",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "TG Send Avatar",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "TG Send B-roll",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Prepare Voice for TG",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Download Final (file)",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Download Avatar (file)",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Download B-roll (file)",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "TG Send Error",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Prepare Voice for TG": {
-        "main": [
-          [
-            {
-              "node": "TG Send Voice (Binary)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Download Final (file)": {
-        "main": [
-          [
-            {
-              "node": "Prepare ZIP (collect binaries)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Download Avatar (file)": {
-        "main": [
-          [
-            {
-              "node": "Prepare ZIP (collect binaries)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Download B-roll (file)": {
-        "main": [
-          [
-            {
-              "node": "Prepare ZIP (collect binaries)",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      }
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "name": "Telegram Trigger",
+      "position": [
+        -5360,
+        -320
+      ],
+      "id": "4ff30a65-e9c6-46f8-a36f-5271c286ff0a",
+      "webhookId": "auto-webhook-id"
     },
-    "pinData": {},
-    "meta": {
-      "templateCredsSetupCompleted": true,
-      "instanceId": "5d76afe05d1c6f747917fede41ee54bddaa2fb4c1719076cacc54d10d317bab3"
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "TELEGRAM_BOT_TOKEN",
+              "value": "={{$env.TELEGRAM_BOT_TOKEN}}"
+            },
+            {
+              "name": "OPENAI_API_KEY",
+              "value": "={{$env.OPENAI_API_KEY}}"
+            },
+            {
+              "name": "ELEVENLABS_API_KEY",
+              "value": "={{$env.ELEVENLABS_API_KEY}}"
+            },
+            {
+              "name": "ELEVENLABS_VOICE_ID",
+              "value": "={{$env.ELEVENLABS_VOICE_ID}}"
+            },
+            {
+              "name": "HEYGEN_API_KEY",
+              "value": "={{$env.HEYGEN_API_KEY}}"
+            },
+            {
+              "name": "HEYGEN_AVATAR_ID",
+              "value": "={{$env.HEYGEN_AVATAR_ID}}"
+            },
+            {
+              "name": "CREATOMATE_API_KEY",
+              "value": "={{$env.CREATOMATE_API_KEY}}"
+            },
+            {
+              "name": "PEXELS_API_KEY",
+              "value": "={{$env.PEXELS_API_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "name": "Set API Keys",
+      "position": [
+        -5136,
+        -320
+      ],
+      "id": "59fae22e-a6c4-40b4-9700-e4e76388b152",
+      "notesInFlow": true,
+      "notes": "Stores all required API keys in the workflow context for later nodes."
+    },
+    {
+      "parameters": {
+        "functionCode": "const required = ['TELEGRAM_BOT_TOKEN','ELEVENLABS_API_KEY','ELEVENLABS_VOICE_ID','HEYGEN_API_KEY','HEYGEN_AVATAR_ID','CREATOMATE_API_KEY','PEXELS_API_KEY'];\nconst missing = required.filter(k => !($json[k] && String($json[k]).trim()));\nif (missing.length) { throw new Error('Missing API keys: ' + missing.join(', ')); }\nreturn items;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Validate API Keys",
+      "position": [
+        -5024,
+        -320
+      ],
+      "id": "441b4115-e2ae-4a8d-a390-457e2c3e1da6",
+      "notesInFlow": true,
+      "notes": "Ensures all required API keys are provided before executing the workflow."
+    },
+    {
+      "parameters": {
+        "functionCode": "const msg = $json.message || {};\nconst text = (msg.text || $json.text || '').trim();\nconst chatId = (msg.chat && msg.chat.id) ? msg.chat.id : $json.chat_id;\nconst messageId = msg.message_id || $json.message_id || undefined;\nconst run_id = (chatId && messageId) ? `${chatId}_${messageId}` : `${Date.now()}`;\nreturn [{ json: { full_script: text, chat_id: chatId, message_id: messageId, run_id, now: new Date().toISOString() } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Extract Script",
+      "position": [
+        -4912,
+        -320
+      ],
+      "id": "4e77db3b-8855-40ab-8172-dbc4e031ae95",
+      "notesInFlow": true,
+      "notes": "Pulls text and chat metadata from Telegram messages and prepares run identifiers."
+    },
+    {
+      "parameters": {
+        "functionCode": "const text = ($json.full_script || '').trim();\nif (!text) throw new Error('Bo\u015f script geldi.');\nconst parts = text.split(/(?<=[\\.!\\?\u2026])\\s+|\\n+/g).map(s => s.trim()).filter(Boolean);\nconst sentences = parts.map((s, i) => ({ index: i + 1, sentence: s, isBroll: ((i + 1) % 2) === 0 }));\nreturn [{ json: { ...$json, sentences } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Split Sentences",
+      "position": [
+        -4720,
+        -320
+      ],
+      "id": "7999bf3f-5a32-4e14-93a7-f84d1fb3dc8c",
+      "notesInFlow": true,
+      "notes": "Splits the incoming script into numbered sentences and flags even sentences as B-roll; throws an error when the script is empty."
+    },
+    {
+      "parameters": {
+        "functionCode": "const sentences = $json.sentences || [];\nconst combined = sentences.map(s => s.sentence).join(' ');\nreturn [{ json: { ...$json, combined_script: combined } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Combine Script",
+      "position": [
+        -4512,
+        -480
+      ],
+      "id": "b10c7e0b-5de4-422c-b8cb-ce41b0edb87f",
+      "notesInFlow": true,
+      "notes": "Reassembles sentences back into a single script string for downstream processing."
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.elevenlabs.io/v1/text-to-speech/` + $node[\"Set API Keys\"].json[\"ELEVENLABS_VOICE_ID\"] + `/stream`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "ElevenLabs TTS (Binary)",
+      "position": [
+        -4320,
+        -480
+      ],
+      "id": "e478bf44-b6c5-4542-a064-a6da83fe83fc",
+      "notesInFlow": true,
+      "notes": "Calls ElevenLabs text-to-speech API to synthesize narration audio; expects valid API key and voice ID."
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "OpenAI Whisper (Transcript)",
+      "position": [
+        -4080,
+        -480
+      ],
+      "id": "f3be1f00-83cd-44f0-ad75-3cd07e5eb9b6",
+      "notesInFlow": true,
+      "notes": "Transcribes generated audio using OpenAI Whisper to obtain word timing information."
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { whisper: $json } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Wrap Whisper",
+      "position": [
+        -3856,
+        -480
+      ],
+      "id": "a89a6d93-e5b4-4961-80b5-544546c48ca9"
+    },
+    {
+      "parameters": {
+        "mode": "mergeByIndex",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "name": "Merge Sentences + Whisper",
+      "position": [
+        -3856,
+        -256
+      ],
+      "id": "cce80141-b1c8-4fbb-b933-fbb3182711c8"
+    },
+    {
+      "parameters": {
+        "functionCode": "const sentences = $json.sentences || [];\nconst whisper = $json.whisper || {};\nconst segments = whisper.segments || [];\nlet timing = [];\nif (Array.isArray(segments) && segments.length) {\n  const words = [];\n  for (const seg of segments) {\n    if (Array.isArray(seg.words)) {\n      for (const w of seg.words) words.push({ start: +w.start||0, end: +w.end||0 });\n    } else {\n      const s0 = +seg.start||0, e0 = +seg.end||s0+3, wc = String(seg.text||'').trim().split(/\\s+/).filter(Boolean).length||1;\n      const per = (e0-s0)/wc; for (let i=0;i<wc;i++) words.push({ start: s0+per*i, end: s0+per*(i+1) });\n    }\n  }\n  let cursor = 0;\n  for (const s of sentences) {\n    const wc = String(s.sentence||'').trim().split(/\\s+/).filter(Boolean).length;\n    const slice = words.slice(cursor, cursor+wc);\n    const start = slice[0]?.start ?? (timing.at(-1)?.end ?? 0);\n    const end = slice.at(-1)?.end ?? (start + Math.max(2, wc/2.5));\n    timing.push({ ...s, start, end }); cursor += wc;\n  }\n} else {\n  let t=0; const wps=2.6; for (const s of sentences){ const wc=String(s.sentence||'').split(/\\s+/).filter(Boolean).length; let dur=Math.max(2,wc/wps); if(s.isBroll) dur=Math.max(3.5,Math.min(4.5,dur)); const start=t; const end=start+dur; timing.push({ ...s, start, end }); t=end; }\n}\nreturn timing.map(x=>({json:{...$json, ...x, chat_id: $json.chat_id, run_id: $json.run_id }}));"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Build Timing Map",
+      "position": [
+        -3632,
+        -256
+      ],
+      "id": "fb3456c6-ac16-47f6-af12-13798d1a5054",
+      "notesInFlow": true,
+      "notes": "Builds a timeline for each sentence using Whisper segments when available or falling back to estimated durations."
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(i=>({json:{...i.json, prompt: i.json.isBroll ? `cinematic, concept: \"${i.json.sentence}\", portrait 9:16, realistic motion, no captions, no text` : null}}));"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Prompt Builder",
+      "position": [
+        -3408,
+        -256
+      ],
+      "id": "46cf8954-ccdc-443c-afc8-182a9696f4c0",
+      "notesInFlow": true,
+      "notes": "Generates visual prompts for B-roll sentences and passes through others unchanged."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.isBroll}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "name": "IF isBroll?",
+      "position": [
+        -3200,
+        -256
+      ],
+      "id": "deb5f0a9-40a5-4b8b-8911-d380fc5022c9"
+    },
+    {
+      "parameters": {
+        "url": "https://api.pexels.com/videos/search",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "Pexels Search",
+      "position": [
+        -2976,
+        -336
+      ],
+      "id": "9e57c219-6c77-4c29-b4ca-c491e6c2df88",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "let link=null; try{ const v=($json.videos||[])[0]; if(v){ const files=(v.video_files||[]).filter(f=>f.height>=1000).sort((a,b)=>(b.height*b.width)-(a.height*a.width)); link=(files[0]?.link)||(v.video_files?.[0]?.link)||null; } }catch(e){}\nreturn [{json:{...$json, broll_url: link, broll_sample_url: link}}];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Extract Pexels URL",
+      "position": [
+        -2768,
+        -336
+      ],
+      "id": "ae70bb30-f8c4-47d0-85ba-48dca4c296b9"
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { ...$json, broll_url: null } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "No B-roll (Pass)",
+      "position": [
+        -2976,
+        -160
+      ],
+      "id": "743749b5-1a3e-4dd6-8202-8f25b053cfd6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "name": "Merge Scenes",
+      "position": [
+        -2560,
+        -256
+      ],
+      "id": "2b10bff4-6cd8-4342-8cde-9e3231fc2231"
+    },
+    {
+      "parameters": {
+        "url": "https://api.heygen.com/v1/video.generate",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "HeyGen Generate",
+      "position": [
+        -2368,
+        -480
+      ],
+      "id": "cd5d7143-502c-42e1-aa68-3ecfa0ad1ed3"
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { video_id: $json.data?.video_id || null } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Extract HeyGen ID",
+      "position": [
+        -2176,
+        -480
+      ],
+      "id": "b920701b-ce0b-4dd7-966b-088f0ff7644b"
+    },
+    {
+      "parameters": {
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "name": "Wait 15s",
+      "position": [
+        -1968,
+        -480
+      ],
+      "id": "b4a5968d-e7e5-4c9d-b38f-9082dbea536d",
+      "webhookId": "e1d8e5ed-d55a-4bf0-9169-80abf2f846df"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.heygen.com/v1/video.status?video_id=` + $json.video_id}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "HeyGen Poll",
+      "position": [
+        -1776,
+        -480
+      ],
+      "id": "de3ece3d-0808-429d-a609-654623fca029"
+    },
+    {
+      "parameters": {
+        "functionCode": "const ready = ($json.data?.state||'').toLowerCase()==='completed';\nconst url = $json.data?.video_url || null;\nreturn [{ json: { avatar_ready: ready, avatar_master_url: url } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Extract HeyGen URL",
+      "position": [
+        -1568,
+        -480
+      ],
+      "id": "2aa444f8-2037-4625-a2e2-a184e6b3d863"
+    },
+    {
+      "parameters": {
+        "functionCode": "const scenes = items.map(i=>i.json).sort((a,b)=>(a.index||0)-(b.index||0));\nfunction toSrtTime(sec){ const s=Math.max(0,+sec||0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=Math.floor(s%60), ms=Math.floor((s-Math.floor(s))*1000); const pad=(n,l=2)=>String(n).padStart(l,'0'); return `${pad(h)}:${pad(m)}:${pad(ss)},${pad(ms,3)}`; }\nlet srt=''; scenes.forEach((sc, i)=>{ srt+=`${i+1}\\n${toSrtTime(sc.start)} --> ${toSrtTime(sc.end)}\\n${sc.sentence}\\n\\n`; });\nconst total = scenes.length ? scenes[scenes.length-1].end : 0;\nreturn [{ json: { scenes, srt, totalDuration: total, chat_id: scenes[0]?.chat_id, run_id: scenes[0]?.run_id } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "SRT Builder",
+      "position": [
+        -2368,
+        -32
+      ],
+      "id": "39fee8f7-f0cd-4f3a-b421-55fb04275854"
+    },
+    {
+      "parameters": {
+        "mode": "mergeByIndex",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "name": "Merge SRT + AvatarURL",
+      "position": [
+        -2176,
+        -32
+      ],
+      "id": "1470e768-d16b-4500-8eb6-539ffba1a466"
+    },
+    {
+      "parameters": {
+        "functionCode": "const s=$json.scenes||[]; const total=+$json.totalDuration||0; const layers=[];\nif ($json.avatar_master_url){ layers.push({type:\"video\", source:$json.avatar_master_url, start:0, end:total, fit:\"cover\", width:576, height:1024}); }\nfor (const sc of s){ if(sc.isBroll && sc.broll_url){ layers.push({type:\"video\", source:sc.broll_url, start:sc.start, end:sc.end, fit:\"cover\", width:576, height:1024}); } }\nlayers.push({type:\"subtitles\", format:\"srt\", content:$json.srt, start:0, end:total, fontFamily:\"Inter\", fontSize:28, alignment:\"bottom\"});\nreturn [{ json: { output:{ width:576, height:1024, fps:24, duration:total }, layers, chat_id: $json.chat_id } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Assemble Layers",
+      "position": [
+        -1968,
+        -32
+      ],
+      "id": "b1bed371-bd90-4075-8fdc-ace3d0d9180b"
+    },
+    {
+      "parameters": {
+        "url": "https://api.creatomate.com/v1/renders",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "Creatomate Render",
+      "position": [
+        -1776,
+        -32
+      ],
+      "id": "5238992c-2ece-4689-8aa9-225141114b66",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const url = $json.url || $json.data?.url || $json.data?.output_url || null; return [{ json: { final_url: url, chat_id: $json.chat_id } }];"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Extract Final URL",
+      "position": [
+        -1568,
+        -32
+      ],
+      "id": "1c6c3dc1-4a46-43d4-8d56-cbe4326dd146"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.final_url}}",
+              "operation": "isSet"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "name": "IF Has Final URL?",
+      "position": [
+        -1376,
+        -32
+      ],
+      "id": "43c25f68-a26d-47c4-8997-5f878647fb69"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendMessage`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send Summary",
+      "position": [
+        -1200,
+        -112
+      ],
+      "id": "dee93217-bfc9-4be8-9ade-479410bbe465"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send Final Video",
+      "position": [
+        -1200,
+        -64
+      ],
+      "id": "76234dff-c243-43a1-b019-1e1fc3800c3e"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send Avatar",
+      "position": [
+        -1200,
+        16
+      ],
+      "id": "dd2e2045-f72e-4adc-8549-b476746c16f5"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendVideo`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send B-roll",
+      "position": [
+        -1200,
+        64
+      ],
+      "id": "06066a69-aa39-4c83-93d6-da730060fe6a"
+    },
+    {
+      "parameters": {
+        "functionCode": "const out = [{ json: { chat_id: $items(\"extract-final-url\")[0].json.chat_id }, binary: {} }];\nconst item = out[0];\n// Ses (ElevenLabs TTS \u00e7\u0131kt\u0131s\u0131)\nitem.binary.voice = $items(\"elevenlabs-tts\")[0].binary.data;\nitem.binary.voice.fileName = item.binary.voice.fileName || \"voice_elevenlabs.mp3\";\nreturn out;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Prepare Voice for TG",
+      "position": [
+        -1200,
+        128
+      ],
+      "id": "9190b670-4224-45fa-b841-d9a0ad780bd8"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendAudio`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send Voice (Binary)",
+      "position": [
+        -1200,
+        192
+      ],
+      "id": "5a917af4-5b97-46a4-ba17-509510f31a1c"
+    },
+    {
+      "parameters": {
+        "url": "={{ $items(\"extract-final-url\")[0].json.final_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "Download Final (file)",
+      "position": [
+        -992,
+        176
+      ],
+      "id": "edb9f3d3-42c3-4b9f-b3e5-6b9c8276a558"
+    },
+    {
+      "parameters": {
+        "url": "={{ $items(\"extract-heygen-url\")[0].json.avatar_master_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "Download Avatar (file)",
+      "position": [
+        -992,
+        224
+      ],
+      "id": "55321d43-336c-4587-8b62-ce378fa4aa1a"
+    },
+    {
+      "parameters": {
+        "url": "={{ $items(\"extract-pexels-url\")[0].json.broll_sample_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "Download B-roll (file)",
+      "position": [
+        -992,
+        288
+      ],
+      "id": "da02b89c-68a5-48f9-8dd9-ba93c25ff6da"
+    },
+    {
+      "parameters": {
+        "functionCode": "const out = [{ json: { chat_id: $items(\"extract-final-url\")[0].json.chat_id }, binary: {} }];\nconst item = out[0];\n// Voice binary (from TTS)\nitem.binary.voice = $items(\"elevenlabs-tts\")[0].binary.data; item.binary.voice.fileName = item.binary.voice.fileName || \"voice_elevenlabs.mp3\";\n// Final\nitem.binary.final = $items(\"dl-final\")[0].binary.data; item.binary.final.fileName = item.binary.final.fileName || \"final_video.mp4\";\n// Avatar\nitem.binary.avatar = $items(\"dl-avatar\")[0].binary.data; item.binary.avatar.fileName = item.binary.avatar.fileName || \"avatar_master.mp4\";\n// B-roll sample\nitem.binary.broll = $items(\"dl-broll\")[0].binary.data; item.binary.broll.fileName = item.binary.broll.fileName || \"broll_sample.mp4\";\n// SRT (text \u2192 binary)\nconst srtText = $items(\"srt-builder\")[0].json.srt || '';\nconst buf = Buffer.from(srtText, 'utf-8');\nitem.binary.subs = { data: buf.toString('base64'), fileName: 'subs.srt', mimeType: 'application/x-subrip' };\nreturn out;"
+      },
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "name": "Prepare ZIP (collect binaries)",
+      "position": [
+        -800,
+        256
+      ],
+      "id": "c7c14482-ab43-4ce4-be30-0b46ae5b3784"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.archive",
+      "typeVersion": 1,
+      "name": "Archive to ZIP",
+      "position": [
+        -592,
+        256
+      ],
+      "id": "b43407af-4e63-4bb2-8042-52725ae669ec"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendDocument`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send ZIP (document)",
+      "position": [
+        -400,
+        256
+      ],
+      "id": "3e33f34b-62e0-4812-84bf-e30ea70c0114"
+    },
+    {
+      "parameters": {
+        "url": "={{`https://api.telegram.org/bot` + $node[\"Set API Keys\"].json[\"TELEGRAM_BOT_TOKEN\"] + `/sendMessage`}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "name": "TG Send Error",
+      "position": [
+        -1200,
+        272
+      ],
+      "id": "3ab83778-e2e2-4a14-acae-06bb6543762e"
     }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set API Keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set API Keys": {
+      "main": [
+        [
+          {
+            "node": "Validate API Keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Script": {
+      "main": [
+        [
+          {
+            "node": "Split Sentences",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combine Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sentences": {
+      "main": [
+        [
+          {
+            "node": "Merge Sentences + Whisper",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Script": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS (Binary)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HeyGen Generate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS (Binary)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Whisper (Transcript)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Whisper (Transcript)": {
+      "main": [
+        [
+          {
+            "node": "Wrap Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wrap Whisper": {
+      "main": [
+        [
+          {
+            "node": "Merge Sentences + Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Sentences + Whisper": {
+      "main": [
+        [
+          {
+            "node": "Build Timing Map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Timing Map": {
+      "main": [
+        [
+          {
+            "node": "Prompt Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Builder": {
+      "main": [
+        [
+          {
+            "node": "IF isBroll?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF isBroll?": {
+      "main": [
+        [
+          {
+            "node": "Pexels Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No B-roll (Pass)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pexels Search": {
+      "main": [
+        [
+          {
+            "node": "Extract Pexels URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Pexels URL": {
+      "main": [
+        [
+          {
+            "node": "Merge Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No B-roll (Pass)": {
+      "main": [
+        [
+          {
+            "node": "Merge Scenes",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Scenes": {
+      "main": [
+        [
+          {
+            "node": "SRT Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HeyGen Generate": {
+      "main": [
+        [
+          {
+            "node": "Extract HeyGen ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract HeyGen ID": {
+      "main": [
+        [
+          {
+            "node": "Wait 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 15s": {
+      "main": [
+        [
+          {
+            "node": "HeyGen Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HeyGen Poll": {
+      "main": [
+        [
+          {
+            "node": "Extract HeyGen URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract HeyGen URL": {
+      "main": [
+        [
+          {
+            "node": "Merge SRT + AvatarURL",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "SRT Builder": {
+      "main": [
+        [
+          {
+            "node": "Merge SRT + AvatarURL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge SRT + AvatarURL": {
+      "main": [
+        [
+          {
+            "node": "Assemble Layers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Layers": {
+      "main": [
+        [
+          {
+            "node": "Creatomate Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creatomate Render": {
+      "main": [
+        [
+          {
+            "node": "Extract Final URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Final URL": {
+      "main": [
+        [
+          {
+            "node": "IF Has Final URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Final URL?": {
+      "main": [
+        [
+          {
+            "node": "TG Send Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TG Send Final Video",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TG Send Avatar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TG Send B-roll",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Voice for TG",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download Final (file)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download Avatar (file)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download B-roll (file)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TG Send Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Voice for TG": {
+      "main": [
+        [
+          {
+            "node": "TG Send Voice (Binary)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Final (file)": {
+      "main": [
+        [
+          {
+            "node": "Prepare ZIP (collect binaries)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Avatar (file)": {
+      "main": [
+        [
+          {
+            "node": "Prepare ZIP (collect binaries)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download B-roll (file)": {
+      "main": [
+        [
+          {
+            "node": "Prepare ZIP (collect binaries)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate API Keys": {
+      "main": [
+        [
+          {
+            "node": "Extract Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5d76afe05d1c6f747917fede41ee54bddaa2fb4c1719076cacc54d10d317bab3"
   }
+}
